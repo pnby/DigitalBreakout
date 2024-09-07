@@ -4,11 +4,12 @@ from uuid import uuid1
 
 from aiogram.types import File, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from beanie import WriteRules
 from faker import Faker
+from faker.generator import random
 
 from app import logger
 from app.database.models.meetings.decision import Decision
+from app.database.models.meetings.person import Person
 from app.database.models.meetings.protocol import Protocol
 from app.database.models.meetings.question import Question
 from app.database.models.meetings.user import User
@@ -28,32 +29,42 @@ async def safe_download(file: File):
 
 
 async def mock_data(message):
-    fake = Faker()
+    fake = Faker(locale="ru_RU")
+
     decision = Decision(title=fake.street_name(), brief_context="123", elapsed_time="01:01")
+
     user = await User.find_one(User.telegram_id == message.from_user.id)
     if user is None:
         user = User(telegram_id=message.from_user.id, full_name=message.from_user.full_name, protocols=None)
         await User.insert(user)
-    question = Question(title=fake.name_female(), persons=None, decision=[decision])
 
+    persons = []
+    for _ in range(random.randint(1, 5)):
+        person = Person(full_name=fake.name(), post=f"{fake.job()} ООО Сбер")
+        await Person.insert(person)
+        persons.append(person)
 
-    await Question.insert(question)
-    fake = Faker(locale="ru_RU")
+    questions = []
+    for _ in range(random.randint(1, 5)):
+        question = Question(title=fake.name_female(), persons=random.sample(persons, random.randint(1, len(persons))),
+                            decision=[decision])
+        await Question.insert(question)
+        questions.append(question)
 
     protocol = Protocol(
         uuid=uuid1(),
         user=user,
         title=fake.region(),
-        theme="1",
-        questions=[question],
-        persons=None,
+        theme=fake.text(),
+        questions=questions,
+        is_ready=False,
+        persons=persons,
     )
     await Protocol.insert(protocol)
 
     if user.protocols is None:
         user.protocols = []
-
-    user.protocols = cast(list[Protocol], user.protocols)
+    user.protocols = cast(List[Protocol], user.protocols)
     user.protocols.append(protocol)
     await User.save(user)
 
@@ -78,4 +89,17 @@ def create_paginated_keyboard(items: List[str], page: int = 1, items_per_page: i
         kb_builder.row(*nav_buttons)
 
     return kb_builder.as_markup()
+
+def format_protocol(protocol: Protocol) -> str:
+    formatted_persons = "\n".join(
+        [f"<i>{person.full_name} ({person.post})</i>" for person in protocol.persons or []]
+    )
+
+    return (
+        f"<b>Наименование:</b> {protocol.title}\n"
+        f"<b>Тема:</b> {protocol.theme}\n"
+        f"<b>Создан:</b> {protocol.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
+        f"<b>Участники:</b>\n{formatted_persons}"
+    )
+
 

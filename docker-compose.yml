@@ -1,0 +1,29 @@
+services:
+
+  mongo_db:
+    image: mongo:latest
+    container_name: mongo_db
+    environment:
+      - MONGO_INITDB_DATABASE=prod
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  bot:
+    container_name: bot
+    ports:
+      - "80:80"
+      - "443:443"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: on-failure
+    depends_on:
+      - mongo_db
+    environment:
+      - MONGO_URI=mongodb://mongo_db:27017/prod
+    command: ["/bin/sh", "-c", "python3 app/__main__.py"]
+
+volumes:
+  mongo-data:

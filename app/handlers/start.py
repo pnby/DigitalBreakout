@@ -3,15 +3,15 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
-from app.database.models.meetings.decision import Decision
-from app.database.models.meetings.question import Question
-from app.database.models.meetings.user import User
-from app.keyboards.menu import main_menu
-from app.utils.utils import mock_data
+from app.keyboards.menu import main_keyboard
 
 router = Router()
 
 @router.message(Command(commands=["start"]))
 async def start_handler(message: Message, state: FSMContext):
     await state.clear()
-    await message.answer("Что-то очень интересное", reply_markup=main_menu)
+    await message.answer(
+        "Приветствую! Я многофункциональный ИИ-Ассистент, готов помочь вам в решении различных задач. "
+        "Используйте меню ниже, чтобы выбрать команду или введите команду /help для получения справки.",
+        reply_markup=main_keyboard
+    )
